@@ -1,0 +1,38 @@
+# Node modules
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# dotenv environment files
+.env
+.env.local
+.env.*.local
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+
+# Build directories (optional, if using bundlers)
+dist/
+build/
+
+# Coverage (e.g., from Jest)
+coverage/
+
+# Dependency resolution cache
+package-lock.json
+yarn.lock
+.pnpm-debug.log
+
+# Optional: Ignore compiled shared JS modules (if you ever use TS or Babel)
+*.tsbuildinfo

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agar.io Clone</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Agar.io Clone</h1>
+      <div class="game-form">
+        <input
+          type="text"
+          id="playerName"
+          placeholder="Enter your name"
+          maxlength="15"
+        />
+        <button id="playButton">Play</button>
+      </div>
+
+      <div id="lastScore" class="last-score hidden">
+        <h3>Your Last Game</h3>
+        <p>Score: <span id="scoreValue">0</span></p>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const playerNameInput = document.getElementById("playerName");
+        const playButton = document.getElementById("playButton");
+        const lastScoreDiv = document.getElementById("lastScore");
+        const scoreValue = document.getElementById("scoreValue");
+
+        const lastScore = localStorage.getItem("lastScore");
+        if (lastScore) {
+          scoreValue.textContent = lastScore;
+          lastScoreDiv.classList.remove("hidden");
+        }
+        const savedName = localStorage.getItem("playerName");
+        if (savedName) {
+          playerNameInput.value = savedName;
+        }
+
+        playButton.addEventListener("click", () => {
+          const playerName = playerNameInput.value.trim();
+          if (playerName) {
+            localStorage.setItem("playerName", playerName);
+            window.location.href = "game.html";
+          } else {
+            alert("Please enter your name!");
+          }
+        });
+        playerNameInput.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") {
+            playButton.click();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
