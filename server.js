@@ -109,7 +109,7 @@ class Player {
     // Update all cells
     for (const cell of this.cells) {
       // Set velocity based on input with constant speed
-      const speed = 500 / Math.sqrt(cell.mass); // Speed decreases with mass
+      const speed = 1000 / Math.sqrt(cell.mass); // Speed decreases with mass
       cell.velocity = this.lastInput.normalize().scale(speed);
       cell.update(dt);
     }
@@ -163,6 +163,33 @@ class GameWorld {
     this.checkCollisions();
   }
 
+  findClosestFood(player) {
+    let playerRadius = player.cells[0].radius;
+    let closestFood = null;
+    let minDistance = Number.MAX_VALUE;
+
+    for (const food of this.foods) {
+      // ignore food near corners
+      if (
+        (food.position.x > this.width - playerRadius ||
+          food.position.x < playerRadius) &&
+        (food.position.y < playerRadius ||
+          food.position.y > this.height - playerRadius)
+      )
+        continue;
+
+      const distance = player.cells[0].position
+        .subtract(food.position)
+        .length();
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestFood = food;
+      }
+    }
+
+    return closestFood;
+  }
+
   updateBots(dt) {
     // Handle bot movement - they move to random targets
     for (const [id, player] of this.players.entries()) {
@@ -172,13 +199,11 @@ class GameWorld {
       // If no target exists or the bot is close to the target, set a new target
       if (
         !this.botTargets.has(id) ||
-        this.botTargets.get(id).subtract(player.cells[0].position).length() < 50
+        this.botTargets.get(id).subtract(player.cells[0].position).length() <
+          player.cells[0].radius
       ) {
-        const newTarget = new Vector2(
-          Math.random() * this.width,
-          Math.random() * this.height
-        );
-        this.botTargets.set(id, newTarget);
+        const newTarget = this.findClosestFood(player).position;
+        this.botTargets.set(id, new Vector2(newTarget.x, newTarget.y));
       }
 
       // Move towards target
