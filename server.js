@@ -1,17 +1,17 @@
 const WebSocket = require("ws");
 const { v4: uuidv4 } = require("uuid");
 
-// Game classes implementation
+// Vector2, Entity, Food, Cell, Player classes remain the same as your last provided version
+// Player class might need 'wasAliveLastTick' if not already present from previous changes for death reporting.
+// Let's assume Player class is as follows for clarity with wasAliveLastTick:
 class Vector2 {
   constructor(x = 0, y = 0) {
     this.x = x;
     this.y = y;
   }
-
   length() {
     return Math.sqrt(this.x * this.x + this.y * this.y);
   }
-
   normalize() {
     const len = this.length();
     if (len > 0) {
@@ -19,15 +19,12 @@ class Vector2 {
     }
     return new Vector2();
   }
-
   add(v) {
     return new Vector2(this.x + v.x, this.y + v.y);
   }
-
   subtract(v) {
     return new Vector2(this.x - v.x, this.y - v.y);
   }
-
   scale(f) {
     return new Vector2(this.x * f, this.y * f);
   }
@@ -40,11 +37,7 @@ class Entity {
     this.radius = radius;
     this.color = color;
   }
-
-  update(dt) {
-    // Base update method
-  }
-
+  update(dt) {}
   collidesWith(other) {
     const distance = Math.sqrt(
       Math.pow(this.position.x - other.position.x, 2) +
@@ -58,27 +51,17 @@ class Food extends Entity {
   constructor(id, position) {
     super(id, position, 5, getRandomColor());
   }
-
-  spawn() {
-    // Food spawn logic
-  }
 }
 
 class Cell extends Entity {
   constructor(id, position, mass = 10, velocity = new Vector2()) {
-    // Size based on mass
     const radius = Math.sqrt(mass) * 4;
     super(id, position, radius, getRandomColor());
     this.mass = mass;
     this.velocity = velocity;
   }
-
   update(dt) {
-    // Update position based on velocity
     this.position = this.position.add(this.velocity.scale(dt));
-
-    // Update radius based on mass
-    this.radius = Math.sqrt(this.mass) * 4;
   }
 }
 
@@ -94,134 +77,180 @@ class Player {
     ];
     this.score = 0;
     this.lastInput = new Vector2();
-    this.bestScore = 0;
+    this.wasAliveLastTick = true; // Important for accurate death reporting
+    this.updateScore();
   }
-
+  updateScore() {
+    this.score = this.cells.reduce((total, cell) => total + cell.mass, 0);
+  }
   isAlive() {
     return this.cells.length > 0;
   }
-
   split() {
-    // To be implemented in future phases
+    /* Server-side split logic */
   }
-
   update(dt) {
-    // Update all cells
     for (const cell of this.cells) {
-      // Set velocity based on input with constant speed
-      const speed = 1000 / Math.sqrt(cell.mass); // Speed decreases with mass
+      const speed = 1000 / Math.sqrt(cell.mass);
       cell.velocity = this.lastInput.normalize().scale(speed);
       cell.update(dt);
-    }
-
-    // Calculate score as sum of all cell masses
-    this.score = this.cells.reduce((total, cell) => total + cell.mass, 0);
-
-    // Update best score
-    if (this.score > this.bestScore) {
-      this.bestScore = this.score;
     }
   }
 }
 
 class GameWorld {
-  constructor(width = 2000, height = 2000) {
+  constructor(width = 2000, height = 2000, targetBotCount = 20) {
+    // Added targetBotCount
     this.width = width;
     this.height = height;
     this.players = new Map();
     this.foods = new Set();
-    this.botTargets = new Map(); // Store target positions for bot movement
+    this.botTargets = new Map();
+    this.targetBotCount = targetBotCount;
+    this._lastAssignedBotNumber = 0; // For "Bot #X" nicknames
 
-    // Initialize with some food
     for (let i = 0; i < 100; i++) {
+      // Initial food spawn
       this.spawnFood();
+    }
+    this.ensureBotPopulation(); // Spawn initial bots
+  }
+
+  spawnNewBot() {
+    const botId = `bot-${uuidv4()}`;
+
+    // Determine the next bot number for the nickname
+    let maxNum = 0;
+    for (const p of this.players.values()) {
+      if (p.id.startsWith("bot-")) {
+        const match = p.nickname.match(/^Bot #(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) {
+            maxNum = num;
+          }
+        }
+      }
+    }
+    this._lastAssignedBotNumber =
+      Math.max(this._lastAssignedBotNumber, maxNum) + 1;
+
+    const botNickname = `Bot #${this._lastAssignedBotNumber}`;
+    const newBot = new Player(botId, botNickname);
+    this.addPlayer(newBot); // addPlayer is an existing method
+    // console.log(`Spawned new bot: ${botNickname} (ID: ${botId})`);
+  }
+
+  ensureBotPopulation() {
+    let currentLiveBotCount = 0;
+    for (const player of this.players.values()) {
+      if (player.id.startsWith("bot-") && player.isAlive()) {
+        currentLiveBotCount++;
+      }
+    }
+
+    const botsNeeded = this.targetBotCount - currentLiveBotCount;
+    if (botsNeeded > 0) {
+      // console.log(`Current live bots: ${currentLiveBotCount}, Target: ${this.targetBotCount}. Spawning ${botsNeeded} new bot(s).`);
+      for (let i = 0; i < botsNeeded; i++) {
+        this.spawnNewBot();
+      }
     }
   }
 
   update(dt) {
-    // Update all players
-    for (const [id, player] of this.players.entries()) {
-      player.update(dt);
+    // Store player alive status before updates and collisions for accurate death detection
+    for (const player of this.players.values()) {
+      player.wasAliveLastTick = player.isAlive();
+    }
 
-      // Keep cells within boundaries
-      for (const cell of player.cells) {
-        cell.position.x = Math.max(
-          cell.radius,
-          Math.min(this.width - cell.radius, cell.position.x)
-        );
-        cell.position.y = Math.max(
-          cell.radius,
-          Math.min(this.height - cell.radius, cell.position.y)
-        );
+    for (const [id, player] of this.players.entries()) {
+      if (player.isAlive()) {
+        player.update(dt);
+        for (const cell of player.cells) {
+          cell.position.x = Math.max(
+            cell.radius,
+            Math.min(this.width - cell.radius, cell.position.x)
+          );
+          cell.position.y = Math.max(
+            cell.radius,
+            Math.min(this.height - cell.radius, cell.position.y)
+          );
+        }
       }
     }
 
-    // Update bot behavior
-    this.updateBots(dt);
+    this.updateBots(dt); // Bot AI movement logic
+    const deathsReport = this.checkCollisions(); // Handles eating and reports deaths
 
-    // Check collisions
-    this.checkCollisions();
+    // After all updates and collision resolutions for the tick:
+    this.ensureBotPopulation(); // Maintain bot count by spawning new ones if needed
+
+    return deathsReport; // Return death info for `death` messages
   }
 
   findClosestFood(player) {
-    let playerRadius = player.cells[0].radius;
+    if (!player.isAlive() || player.cells.length === 0) return null;
+    const playerCell = player.cells[0];
     let closestFood = null;
     let minDistance = Number.MAX_VALUE;
-
     for (const food of this.foods) {
-      // ignore food near corners
-      if (
-        (food.position.x > this.width - playerRadius ||
-          food.position.x < playerRadius) &&
-        (food.position.y < playerRadius ||
-          food.position.y > this.height - playerRadius)
-      )
-        continue;
-
-      const distance = player.cells[0].position
-        .subtract(food.position)
-        .length();
+      const distance = playerCell.position.subtract(food.position).length();
       if (distance < minDistance) {
         minDistance = distance;
         closestFood = food;
       }
     }
-
     return closestFood;
   }
 
   updateBots(dt) {
-    // Handle bot movement - they move to random targets
+    // Bot AI logic
     for (const [id, player] of this.players.entries()) {
-      // Only proceed for bots
-      if (!id.startsWith("bot-")) continue;
-
-      // If no target exists or the bot is close to the target, set a new target
+      if (
+        !id.startsWith("bot-") ||
+        !player.isAlive() ||
+        player.cells.length === 0
+      ) {
+        if (id.startsWith("bot-") && !player.isAlive()) {
+          this.botTargets.delete(id);
+        }
+        continue;
+      }
+      const mainCell = player.cells[0];
       if (
         !this.botTargets.has(id) ||
-        this.botTargets.get(id).subtract(player.cells[0].position).length() <
-          player.cells[0].radius
+        this.botTargets.get(id).subtract(mainCell.position).length() <
+          mainCell.radius
       ) {
-        const newTarget = this.findClosestFood(player).position;
-        this.botTargets.set(id, new Vector2(newTarget.x, newTarget.y));
+        const closestFood = this.findClosestFood(player);
+        if (closestFood) {
+          this.botTargets.set(
+            id,
+            new Vector2(closestFood.position.x, closestFood.position.y)
+          );
+        } else {
+          const newTarget = new Vector2(
+            Math.random() * this.width,
+            Math.random() * this.height
+          );
+          this.botTargets.set(id, newTarget);
+        }
       }
-
-      // Move towards target
       const target = this.botTargets.get(id);
-      const direction = target.subtract(player.cells[0].position).normalize();
-      player.lastInput = direction;
+      if (target) {
+        player.lastInput = target.subtract(mainCell.position).normalize();
+      }
     }
   }
 
   addPlayer(player) {
     this.players.set(player.id, player);
   }
-
   removePlayer(id) {
     this.players.delete(id);
     this.botTargets.delete(id);
   }
-
   spawnFood() {
     const food = new Food(
       `food-${uuidv4()}`,
@@ -231,45 +260,151 @@ class GameWorld {
   }
 
   checkCollisions() {
-    // Check player cells vs food
-    for (const [playerId, player] of this.players.entries()) {
+    const allPlayersInitially = Array.from(this.players.values());
+    const activePlayersForCollision = allPlayersInitially.filter((p) =>
+      p.isAlive()
+    ); // Use players alive at start of collision check
+
+    const foodIdsToRemove = new Set();
+    const cellIdsEatenThisTick = new Set();
+    const newlyDeceasedPlayersReport = []; // Phase 1: Food Consumption
+
+    for (const player of activePlayersForCollision) {
+      // Iterate based on who was alive for this phase
       for (const cell of player.cells) {
+        if (cellIdsEatenThisTick.has(cell.id)) continue;
         for (const food of this.foods) {
+          if (foodIdsToRemove.has(food.id)) continue;
           if (cell.collidesWith(food)) {
-            // Player consumes food
             cell.mass += 1;
-            this.foods.delete(food);
-            this.spawnFood(); // Spawn a new food
+            cell.radius = Math.sqrt(cell.mass) * 4;
+            foodIdsToRemove.add(food.id);
+            break;
           }
         }
       }
     }
+    let foodSpawnCounter = 0;
+    this.foods = new Set(
+      Array.from(this.foods).filter((f) => {
+        if (foodIdsToRemove.has(f.id)) {
+          foodSpawnCounter++;
+          return false;
+        }
+        return true;
+      })
+    );
+    for (let i = 0; i < foodSpawnCounter; i++) {
+      this.spawnFood();
+    } // Phase 2: Player Cell vs. Player Cell Consumption
 
-    // Check player cells vs other player cells (for future implementations)
-    // This would handle player cells eating other player cells
+    for (let i = 0; i < activePlayersForCollision.length; i++) {
+      const player1 = activePlayersForCollision[i];
+      if (
+        !player1.isAlive() ||
+        player1.cells.every((c) => cellIdsEatenThisTick.has(c.id))
+      )
+        continue;
+      for (let j = i + 1; j < activePlayersForCollision.length; j++) {
+        const player2 = activePlayersForCollision[j];
+        if (
+          !player2.isAlive() ||
+          player2.cells.every((c) => cellIdsEatenThisTick.has(c.id))
+        )
+          continue;
+        const p1CellsSnapshot = [...player1.cells];
+        const p2CellsSnapshot = [...player2.cells];
+        for (const cell1 of p1CellsSnapshot) {
+          if (cellIdsEatenThisTick.has(cell1.id)) continue;
+          for (const cell2 of p2CellsSnapshot) {
+            if (cellIdsEatenThisTick.has(cell2.id)) continue;
+            if (cell1.collidesWith(cell2)) {
+              const massThresh = 1.01;
+              const c1m = cell1.mass;
+              const c2m = cell2.mass;
+              if (c1m > c2m * massThresh) {
+                const actualC1 = player1.cells.find((c) => c.id === cell1.id);
+                if (actualC1 && !cellIdsEatenThisTick.has(cell2.id)) {
+                  actualC1.mass += c2m;
+                  actualC1.radius = Math.sqrt(actualC1.mass) * 4;
+                  cellIdsEatenThisTick.add(cell2.id);
+                }
+              } else if (c2m > c1m * massThresh) {
+                const actualC2 = player2.cells.find((c) => c.id === cell2.id);
+                if (actualC2 && !cellIdsEatenThisTick.has(cell1.id)) {
+                  actualC2.mass += c1m;
+                  actualC2.radius = Math.sqrt(actualC2.mass) * 4;
+                  cellIdsEatenThisTick.add(cell1.id);
+                }
+              }
+            }
+          }
+        }
+      }
+    } // Phase 3: Remove eaten cells, update scores, identify deaths
+
+    for (const player of allPlayersInitially) {
+      // Iterate all original players to check their status change
+      const scoreBeforeCellRemovalAndUpdate = player.score; // Score after food/eating others, before their own cells potentially removed making them die
+      const wasActuallyAliveBeforeThisCollisionCheck = player.wasAliveLastTick; // Status recorded at the very start of GameWorld.update()
+
+      if (player.isAlive()) {
+        // Only filter cells if player currently has any
+        player.cells = player.cells.filter(
+          (cell) => !cellIdsEatenThisTick.has(cell.id)
+        );
+      }
+      player.updateScore(); // Recalculate score based on remaining cells
+
+      if (wasActuallyAliveBeforeThisCollisionCheck && !player.isAlive()) {
+        newlyDeceasedPlayersReport.push({
+          id: player.id,
+          finalScore: scoreBeforeCellRemovalAndUpdate,
+        });
+      }
+      if (!player.isAlive()) {
+        if (player.id.startsWith("bot-")) {
+          this.botTargets.delete(player.id);
+        }
+      }
+    }
+    return newlyDeceasedPlayersReport;
   }
 
-  // Prepare a simplified state for sending to clients
+  getLeaderboard() {
+    /* ... same as before ... */ return Array.from(this.players.values())
+      .filter((p) => p.isAlive())
+      .sort((a, b) => b.score - a.score)
+      .map((p, i) => ({
+        id: p.id,
+        nickname: p.nickname,
+        score: p.score,
+        rank: i + 1,
+      }));
+  }
   getState() {
-    return {
-      players: Array.from(this.players.values()).map((player) => ({
-        id: player.id,
-        nickname: player.nickname,
-        score: player.score,
-        cells: player.cells.map((cell) => ({
-          id: cell.id,
-          x: cell.position.x,
-          y: cell.position.y,
-          radius: cell.radius,
-          color: cell.color,
+    /* ... same as before, ensuring timestamp ... */ return {
+      timestamp: Date.now(),
+      visiblePlayers: Array.from(this.players.values())
+        .filter((p) => p.isAlive())
+        .map((p) => ({
+          id: p.id,
+          nickname: p.nickname,
+          score: p.score,
+          cells: p.cells.map((c) => ({
+            id: c.id,
+            x: c.position.x,
+            y: c.position.y,
+            radius: c.radius,
+            color: c.color,
+          })),
         })),
-      })),
-      foods: Array.from(this.foods).map((food) => ({
-        id: food.id,
-        x: food.position.x,
-        y: food.position.y,
-        radius: food.radius,
-        color: food.color,
+      visibleFood: Array.from(this.foods).map((f) => ({
+        id: f.id,
+        x: f.position.x,
+        y: f.position.y,
+        radius: f.radius,
+        color: f.color,
       })),
     };
   }
@@ -277,42 +412,63 @@ class GameWorld {
 
 class GameState {
   constructor() {
-    this.gameWorld = new GameWorld();
-    // Add a bot player
-    const botPlayer = new Player("bot-1", "Bot Player");
-    this.gameWorld.addPlayer(botPlayer);
+    // GameWorld constructor now handles initial bot population via its targetBotCount parameter
+    this.gameWorld = new GameWorld(2000, 2000, 20); // width, height, targetBotCount
   }
 
   broadcast(wss) {
     const state = this.gameWorld.getState();
-    broadcast(wss, { type: "state", data: state });
+    broadcast(wss, { type: "gameState", ...state });
   }
-
-  handleInput(id, dir) {
-    const player = this.gameWorld.players.get(id);
-    if (player) {
-      player.lastInput = new Vector2(dir.x, dir.y);
-    }
-  }
-
-  handleJoin(id, nickname, ws) {
-    // Create new player
-    const player = new Player(id, nickname);
-    this.gameWorld.addPlayer(player);
-
-    // Send player data back
-    sendTo(ws, {
-      type: "playerData",
-      data: {
-        id: player.id,
-        nickname: player.nickname,
-        bestScore: player.bestScore,
-      },
+  broadcastLeaderboard(wss) {
+    /* ... same as before ... */ const alive = this.gameWorld.getLeaderboard();
+    const topN = 10;
+    const topData = alive
+      .slice(0, topN)
+      .map((p) => ({ nickname: p.nickname, score: p.score }));
+    wss.clients.forEach((c) => {
+      if (c.readyState === WebSocket.OPEN && c.id) {
+        const pE = this.gameWorld.players.get(c.id);
+        let pers;
+        if (pE) {
+          const lE = alive.find((p) => p.id === c.id);
+          if (lE) {
+            pers = { rank: lE.rank, score: lE.score };
+          } else {
+            pers = { rank: 0, score: pE.score };
+          }
+        } else {
+          pers = { rank: 0, score: 0 };
+        }
+        sendTo(c, { type: "leaderboard", topPlayers: topData, personal: pers });
+      }
     });
   }
-
+  handleInput(id, dir) {
+    const p = this.gameWorld.players.get(id);
+    if (p && p.isAlive()) {
+      p.lastInput = new Vector2(dir.x, dir.y);
+    }
+  }
+  handleJoin(id, nickname, ws) {
+    const p = new Player(id, nickname);
+    this.gameWorld.addPlayer(p);
+    sendTo(ws, { type: "playerData", id: p.id, nickname: p.nickname });
+  }
   handleDisconnect(id) {
     this.gameWorld.removePlayer(id);
+  }
+  handlePlayerDeaths(deceasedPlayers, wss) {
+    deceasedPlayers.forEach((deathInfo) => {
+      wss.clients.forEach((client) => {
+        if (
+          client.id === deathInfo.id &&
+          client.readyState === WebSocket.OPEN
+        ) {
+          sendTo(client, { type: "death", score: deathInfo.finalScore });
+        }
+      });
+    });
   }
 }
 
@@ -320,30 +476,32 @@ class GameLoop {
   constructor(gameState, wss) {
     this.gameState = gameState;
     this.wss = wss;
-    this.interval = 16; // ~60 FPS
+    this.interval = 16;
     this.lastTime = Date.now();
   }
-
   start() {
     setInterval(() => this.tick(), this.interval);
+    setInterval(() => this.secondTick(), 1000);
   }
-
+  secondTick() {
+    this.gameState.broadcastLeaderboard(this.wss);
+  }
   tick() {
     const currentTime = Date.now();
-    const dt = (currentTime - this.lastTime) / 1000; // Convert to seconds
+    const dt = (currentTime - this.lastTime) / 1000;
     this.lastTime = currentTime;
-
-    // Update game world
-    this.gameState.gameWorld.update(dt);
-
-    // Broadcast state to all clients
+    const newlyDeceasedPlayers = this.gameState.gameWorld.update(dt);
+    if (newlyDeceasedPlayers && newlyDeceasedPlayers.length > 0) {
+      this.gameState.handlePlayerDeaths(newlyDeceasedPlayers, this.wss);
+    }
     this.gameState.broadcast(this.wss);
   }
 }
 
-// Helper functions
+// getRandomColor, broadcast, sendTo, WebSocket server setup (wss, PORT, etc.)
+// remain the same as your last provided version.
 function getRandomColor() {
-  const colors = [
+  const c = [
     "#FF5252",
     "#FF4081",
     "#E040FB",
@@ -361,71 +519,56 @@ function getRandomColor() {
     "#FFAB40",
     "#FF6E40",
   ];
-  return colors[Math.floor(Math.random() * colors.length)];
+  return c[Math.floor(Math.random() * c.length)];
 }
-
 function broadcast(wss, data) {
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(data));
+  wss.clients.forEach((c) => {
+    if (c.readyState === WebSocket.OPEN) {
+      c.send(JSON.stringify(data));
     }
   });
 }
-
 function sendTo(ws, data) {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
   }
 }
 
-// Initialize the WebSocket server
 const PORT = process.env.PORT || 8080;
 const wss = new WebSocket.Server({ port: PORT });
 const gameState = new GameState();
 const gameLoop = new GameLoop(gameState, wss);
-
 console.log(`WebSocket server started on port ${PORT}`);
-
-// Start the game loop
 gameLoop.start();
-
-// Handle WebSocket connections
 wss.on("connection", (ws) => {
-  const clientId = uuidv4();
-  ws.id = clientId;
-
-  console.log(`Client connected: ${clientId}`);
-
-  ws.on("message", (message) => {
+  const cId = uuidv4();
+  ws.id = cId;
+  console.log(`Client connected: ${cId}`);
+  ws.on("message", (msg) => {
     try {
-      const data = JSON.parse(message);
-
-      switch (data.type) {
+      const d = JSON.parse(msg);
+      switch (d.type) {
         case "join":
-          gameState.handleJoin(clientId, data.nickname, ws);
+          gameState.handleJoin(ws.id, d.nickname, ws);
           break;
         case "input":
-          gameState.handleInput(clientId, data.direction);
+          gameState.handleInput(ws.id, d.direction);
           break;
         case "split":
-          // To be implemented in future phases
-          break;
-        case "scoreRequest":
-          // To be implemented in future phases (leaderboard)
           break;
         case "leave":
-          gameState.handleDisconnect(clientId);
+          gameState.handleDisconnect(ws.id);
+          ws.close();
           break;
         default:
-          console.warn(`Unknown message type: ${data.type}`);
+          console.warn(`Unknown message type: ${d.type}`);
       }
-    } catch (error) {
-      console.error("Error processing message:", error);
+    } catch (e) {
+      console.error("Error processing message:", e);
     }
   });
-
   ws.on("close", () => {
-    console.log(`Client disconnected: ${clientId}`);
-    gameState.handleDisconnect(clientId);
+    console.log(`Client disconnected: ${ws.id}`);
+    gameState.handleDisconnect(ws.id);
   });
 });
