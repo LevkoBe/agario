@@ -1,20 +1,32 @@
 {
   "name": "agario",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm run build --workspaces",
+    "dev": "concurrently -k -n SERVER,CLIENT -c green,blue \"npm run dev --workspace=server\" \"npm run dev --workspace=client\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LevkoBe/agario.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
-  "dependencies": {
-    "express": "^5.1.0",
-    "socket.io": "^4.8.1",
-    "uuid": "^11.1.0",
-    "ws": "^8.18.2"
+  "bugs": {
+    "url": "https://github.com/LevkoBe/agario/issues"
+  },
+  "homepage": "https://github.com/LevkoBe/agario#readme",
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3"
   }
 }
