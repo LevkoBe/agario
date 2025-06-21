@@ -1,5 +1,6 @@
 {
   "extends": "../tsconfig.json",
+  "allowSyntheticDefaultImports": true,
   "compilerOptions": {
     "rootDir": "src",
     "tsBuildInfoFile": "../.tsbuildinfo-client"

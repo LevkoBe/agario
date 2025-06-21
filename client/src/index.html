@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Robot Arena</title>
+    <link rel="stylesheet" href="./gameStyles.css" />
+  </head>
+  <body>
+    <div id="gameContainer">
+      <canvas id="gameCanvas"></canvas>
+
+      <div id="ui">
+        <div id="joinScreen">
+          <h1>🤖 ROBOT ARENA</h1>
+          <input
+            type="text"
+            id="nicknameInput"
+            placeholder="Enter your nickname"
+            maxlength="20"
+          />
+          <select id="modeSelect">
+            <option value="ffa">Free For All</option>
+            <option value="teams">Teams</option>
+            <option value="sandbox">Sandbox</option>
+          </select>
+          <label>
+            <input type="checkbox" id="privateRoomCheck" /> Private Room
+          </label>
+          <input
+            type="text"
+            id="serverUrl"
+            placeholder="ws://localhost:8080"
+            value="ws://localhost:8080"
+          />
+          <button onclick="joinGame()">JOIN ARENA</button>
+        </div>
+
+        <div id="stats" class="hidden">
+          <h3>📊 STATS</h3>
+          <div class="stat-item">
+            <span>Mass:</span> <span id="playerMass">0</span>
+          </div>
+          <div class="stat-item">
+            <span>Rank:</span> <span id="playerRank">-</span>
+          </div>
+          <div class="stat-item">
+            <span>Score:</span> <span id="playerScore">0</span>
+          </div>
+        </div>
+
+        <div id="leaderboard" class="hidden">
+          <h3>🏆 LEADERBOARD</h3>
+          <div id="leaderboardList"></div>
+        </div>
+
+        <div id="controls" class="hidden">
+          <h3>🎮 CONTROLS</h3>
+          <div><span class="control-key">Mouse</span> Move</div>
+          <div><span class="control-key">Q</span> Blaster</div>
+          <div><span class="control-key">W</span> Magnet</div>
+          <div><span class="control-key">E</span> Teleport</div>
+          <div><span class="control-key">R</span> Transformer</div>
+          <div><span class="control-key">Space</span> Drop Junk</div>
+          <div><span class="control-key">F</span> Build Base</div>
+        </div>
+
+        <div id="tools" class="hidden">
+          <div class="tool-slot" id="tool-blaster">B</div>
+          <div class="tool-slot" id="tool-magnet">M</div>
+          <div class="tool-slot" id="tool-teleport">T</div>
+          <div class="tool-slot" id="tool-transformer">X</div>
+        </div>
+
+        <div id="connectionStatus" class="disconnected">DISCONNECTED</div>
+      </div>
+    </div>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
