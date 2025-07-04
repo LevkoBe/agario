@@ -139,3 +139,5 @@ export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 export type UpgradeType = "speed" | "defense" | "attack" | "toolSlot";
 
 export type ToolType = "blaster" | "magnet" | "teleport" | "transformer";
+
+export type BotType = "moving" | "shooting" | "protecting";
