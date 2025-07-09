@@ -7,7 +7,7 @@ The game takes place on a dynamic 2D map, similar to Agar.io, with robots, junk,
 ### **Game Objects:**
 
 - **Junk:** Scattered pieces consumed by robots to grow.
-- **Robots:** Evolve by consuming junk and other robots, gaining size, strength, and tools (e.g., guns, magnets, chips, teleports, transformers, etc).
+- **Robots:** Evolve by consuming junk and destroyed robots, gaining size, strength, and tools (e.g., guns, magnets, chips, teleports, transformers, etc).
 - **Immovable Objects:** Fixed structures, like bases and walls, which can be destroyed.
 
 ---
@@ -15,7 +15,7 @@ The game takes place on a dynamic 2D map, similar to Agar.io, with robots, junk,
 ### **Game Mechanics:**
 
 - **Evolution:** Robots grow by consuming junk and smaller robots.
-- **Base Creation:** Robots can create and share bases for protection and upgrades.
+- **Base Creation:** Robots can create bots that are attacking, protecting, or collecting resources.
 - **Tools:** Robots upgrade with weapons and special abilities.
 - **Destruction:** Robots and structures can be destroyed for resources.
 

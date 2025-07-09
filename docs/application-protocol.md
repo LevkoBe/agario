@@ -91,17 +91,6 @@
 </tr>
 
 <tr>
-  <td><code>evolve</code></td>
-  <td>Client → Server</td>
-  <td>When enough mass/tools are collected</td>
-  <td><pre><code>{
-  "type": "evolve",
-  "upgrade": "speed" | "defense" | "attack" | "toolSlot"
-}</code></pre></td>
-  <td>Improves robot stats or unlocks a new tool slot.</td>
-</tr>
-
-<tr>
   <td><code>gameState</code></td>
   <td>Server → Client</td>
   <td>Every frame (~60 fps)</td>
