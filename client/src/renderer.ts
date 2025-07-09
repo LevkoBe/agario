@@ -1,28 +1,28 @@
-import { GameState, Robot, Junk, Structure, Camera, Mouse } from "./types";
+import {
+  GameState,
+  Robot,
+  Junk,
+  Structure,
+  Camera,
+  Mouse,
+  ToolType,
+} from "./types";
 
 export class GameRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private camera: Camera;
-  private mouse: Mouse;
-  private playerId: string | null;
+  private camera: Camera = { x: 0, y: 0 };
+  private mouse: Mouse = { x: 0, y: 0 };
+  private playerId: string | null = null;
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
-    if (!this.canvas) {
-      throw new Error(`Canvas element with ID '${canvasId}' not found`);
-    }
+    if (!this.canvas) throw new Error(`Canvas with ID '${canvasId}' not found`);
 
-    const context = this.canvas.getContext("2d");
-    if (!context) {
-      throw new Error("2D rendering context not supported");
-    }
-    this.ctx = context;
+    const ctx = this.canvas.getContext("2d");
+    if (!ctx) throw new Error("2D rendering context not supported");
 
-    this.camera = { x: 0, y: 0 };
-    this.mouse = { x: 0, y: 0 };
-    this.playerId = null;
-
+    this.ctx = ctx;
     this.setupCanvas();
   }
 
@@ -49,14 +49,17 @@ export class GameRenderer {
   }
 
   public render(gameState: GameState): void {
-    this.ctx.fillStyle = "#000000";
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
+    this.clearCanvas();
     this.drawGrid();
     this.drawJunk(gameState.junk);
     this.drawStructures(gameState.structures);
     this.drawRobots(gameState.robots);
     this.drawCrosshair();
+  }
+
+  private clearCanvas(): void {
+    this.ctx.fillStyle = "#000000";
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
   private drawGrid(): void {
@@ -86,10 +89,11 @@ export class GameRenderer {
     robots.forEach((robot) => {
       const screenX = robot.position.x - this.camera.x + this.canvas.width / 2;
       const screenY = robot.position.y - this.camera.y + this.canvas.height / 2;
+      const radius = robot.radius || 20;
 
-      // Robot body
+      // Draw robot body
       this.ctx.beginPath();
-      this.ctx.arc(screenX, screenY, robot.radius || 20, 0, 2 * Math.PI);
+      this.ctx.arc(screenX, screenY, radius, 0, 2 * Math.PI);
       this.ctx.fillStyle =
         robot.color || (robot.id === this.playerId ? "#00ff88" : "#ff6b6b");
       this.ctx.fill();
@@ -97,17 +101,13 @@ export class GameRenderer {
       this.ctx.lineWidth = 2;
       this.ctx.stroke();
 
-      // Robot nickname
+      // Draw nickname
       this.ctx.fillStyle = "#ffffff";
       this.ctx.font = "12px Courier New";
       this.ctx.textAlign = "center";
-      this.ctx.fillText(
-        robot.nickname,
-        screenX,
-        screenY - (robot.radius || 20) - 5
-      );
+      this.ctx.fillText(robot.nickname, screenX, screenY - radius - 5);
 
-      // Mass indicator
+      // Draw mass
       this.ctx.fillStyle = "#00ff88";
       this.ctx.font = "10px Courier New";
       this.ctx.fillText(
@@ -115,6 +115,14 @@ export class GameRenderer {
         screenX,
         screenY + 5
       );
+
+      // Draw current tool (if this is the player)
+      if (robot.id === this.playerId && robot.tools?.length) {
+        const currentTool: ToolType = robot.tools[0]; // Or use `this.currentTool` if passed in
+        this.ctx.fillStyle = "#ffffff";
+        this.ctx.font = "10px Courier New";
+        this.ctx.fillText(currentTool, screenX, screenY + radius + 15);
+      }
     });
   }
 
@@ -127,7 +135,6 @@ export class GameRenderer {
 
       this.ctx.beginPath();
       this.ctx.arc(screenX, screenY, size, 0, 2 * Math.PI);
-
       switch (item.type) {
         case "metal":
           this.ctx.fillStyle = "#c0c0c0";
@@ -141,8 +148,8 @@ export class GameRenderer {
         default:
           this.ctx.fillStyle = "#888888";
       }
-
       this.ctx.fill();
+
       this.ctx.strokeStyle = "#ffffff";
       this.ctx.lineWidth = 1;
       this.ctx.stroke();
@@ -164,12 +171,13 @@ export class GameRenderer {
         this.ctx.lineWidth = 2;
         this.ctx.strokeRect(screenX - 25, screenY - 25, 50, 50);
 
+        // Health bar
         if (structure.health !== undefined) {
-          const healthPercent = structure.health / 100;
+          const percent = structure.health / 100;
           this.ctx.fillStyle = "#ff0000";
           this.ctx.fillRect(screenX - 25, screenY - 35, 50, 5);
           this.ctx.fillStyle = "#00ff00";
-          this.ctx.fillRect(screenX - 25, screenY - 35, 50 * healthPercent, 5);
+          this.ctx.fillRect(screenX - 25, screenY - 35, 50 * percent, 5);
         }
       } else if (structure.type === "wall") {
         this.ctx.fillStyle = "#666666";

@@ -7,7 +7,6 @@ import {
   ActivateToolMessage,
   DropJunkMessage,
   ConstructBaseMessage,
-  EvolveMessage,
   Junk,
   Structure,
 } from "./types.js";
@@ -138,39 +137,6 @@ export class MessageHandlers {
     room!.structures.set(base.id, base);
   }
 
-  handleEvolve(ws: WebSocket, message: EvolveMessage): void {
-    const client = this.clients.get(ws);
-    if (!client?.robotId || !client?.roomId) return;
-
-    const room = this.roomManager.getRoom(client.roomId);
-    const robot = room?.robots.get(client.robotId);
-
-    if (!robot || robot.mass < 20) return;
-
-    robot.mass -= 20;
-    robot.radius = GameUtils.calculateRadius(robot.mass);
-
-    switch (message.upgrade) {
-      case "speed":
-        robot.speed += 0.2;
-        break;
-      case "defense":
-        robot.defense += 0.3;
-        break;
-      case "attack":
-        robot.attack += 0.25;
-        break;
-      case "toolSlot":
-        if (robot.tools.length < 4) {
-          const availableTools = ToolManager.getAvailableTools(robot);
-          if (availableTools.length > 0) {
-            robot.tools.push(availableTools[0]);
-          }
-        }
-        break;
-    }
-  }
-
   handleMessage(ws: WebSocket, message: ClientMessage): void {
     switch (message.type) {
       case "join":
@@ -187,9 +153,6 @@ export class MessageHandlers {
         break;
       case "constructBase":
         this.handleConstructBase(ws, message);
-        break;
-      case "evolve":
-        this.handleEvolve(ws, message);
         break;
     }
   }

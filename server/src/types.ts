@@ -1,6 +1,5 @@
 export type GameMode = "ffa" | "teams" | "sandbox";
 export type Tool = "blaster" | "magnet" | "teleport" | "transformer";
-export type Upgrade = "speed" | "defense" | "attack" | "toolSlot";
 export type JunkType = "metal" | "circuit" | "energy";
 export type StructureType = "base" | "wall";
 
@@ -78,15 +77,9 @@ export interface ConstructBaseMessage {
   position: Position;
 }
 
-export interface EvolveMessage {
-  type: "evolve";
-  upgrade: Upgrade;
-}
-
 export type ClientMessage =
   | JoinMessage
   | MoveMessage
   | ActivateToolMessage
   | DropJunkMessage
-  | ConstructBaseMessage
-  | EvolveMessage;
+  | ConstructBaseMessage;

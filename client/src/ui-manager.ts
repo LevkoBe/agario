@@ -1,4 +1,4 @@
-import { LeaderboardData, ConnectionStatus } from "./types";
+import { LeaderboardData, ConnectionStatus, ToolType } from "./types";
 
 export class UIManager {
   constructor() {
@@ -21,19 +21,38 @@ export class UIManager {
     }
   }
 
-  public updateTools(tools: string[]): void {
+  public updateTools(tools: ToolType[]): void {
     const toolElements = document.querySelectorAll(
       ".tool-slot"
     ) as NodeListOf<HTMLElement>;
     toolElements.forEach((el) => (el.style.display = "none"));
 
-    if (tools) {
-      tools.forEach((tool) => {
-        const element = document.getElementById(`tool-${tool}`) as HTMLElement;
-        if (element) {
-          element.style.display = "inline-block";
-        }
-      });
+    tools.forEach((tool) => {
+      const element = document.getElementById(`tool-${tool}`) as HTMLElement;
+      if (element) {
+        element.style.display = "inline-block";
+        element.classList.remove("tool-selected", "tool-active");
+      }
+    });
+  }
+
+  public updateSelectedTool(tool: ToolType): void {
+    const allToolElements = document.querySelectorAll(".tool-slot");
+    allToolElements.forEach((el) =>
+      el.classList.remove("tool-selected", "tool-active")
+    );
+
+    const toolElement = document.getElementById(`tool-${tool}`) as HTMLElement;
+    if (toolElement) {
+      toolElement.classList.add("tool-selected");
+    }
+  }
+
+  public activateToolFeedback(tool: ToolType): void {
+    const toolElement = document.getElementById(`tool-${tool}`) as HTMLElement;
+    if (toolElement) {
+      toolElement.classList.add("tool-active");
+      setTimeout(() => toolElement.classList.remove("tool-active"), 200);
     }
   }
 
@@ -74,39 +93,30 @@ export class UIManager {
   }
 
   public hideJoinScreen(): void {
-    const elementsToHide = ["joinScreen"];
-    const elementsToShow = ["stats", "leaderboard", "controls", "tools"];
-
-    elementsToHide.forEach((id) => {
-      const element = document.getElementById(id);
-      if (element) {
-        element.classList.add("hidden");
-      }
-    });
-
-    elementsToShow.forEach((id) => {
-      const element = document.getElementById(id);
-      if (element) {
-        element.classList.remove("hidden");
-      }
+    this.toggleScreens({
+      joinScreen: false,
+      stats: true,
+      leaderboard: true,
+      controls: true,
+      tools: true,
     });
   }
 
   public showJoinScreen(): void {
-    const elementsToShow = ["joinScreen"];
-    const elementsToHide = ["stats", "leaderboard", "controls", "tools"];
-
-    elementsToShow.forEach((id) => {
-      const element = document.getElementById(id);
-      if (element) {
-        element.classList.remove("hidden");
-      }
+    this.toggleScreens({
+      joinScreen: true,
+      stats: false,
+      leaderboard: false,
+      controls: false,
+      tools: false,
     });
+  }
 
-    elementsToHide.forEach((id) => {
-      const element = document.getElementById(id);
-      if (element) {
-        element.classList.add("hidden");
+  private toggleScreens(state: Record<string, boolean>): void {
+    Object.entries(state).forEach(([id, visible]) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.toggle("hidden", !visible);
       }
     });
   }
@@ -120,14 +130,6 @@ export class UIManager {
 
   public showErrorAlert(message: string): void {
     alert(message);
-  }
-
-  public activateToolFeedback(tool: string): void {
-    const toolElement = document.getElementById(`tool-${tool}`) as HTMLElement;
-    if (toolElement) {
-      toolElement.classList.add("tool-active");
-      setTimeout(() => toolElement.classList.remove("tool-active"), 200);
-    }
   }
 
   public getJoinFormData(): {
@@ -169,5 +171,13 @@ export class UIManager {
     }
 
     return { nickname, mode, privateRoom, serverUrl };
+  }
+
+  public resetToolUI(): void {
+    const toolElements = document.querySelectorAll(".tool-slot");
+    toolElements.forEach((el) => {
+      el.classList.remove("tool-selected", "tool-active");
+      (el as HTMLElement).style.display = "none";
+    });
   }
 }

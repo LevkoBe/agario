@@ -10,7 +10,7 @@ export interface Robot {
   mass: number;
   radius?: number;
   color?: string;
-  tools?: string[];
+  tools?: ToolType[];
 }
 
 export interface Junk {
@@ -128,15 +128,18 @@ export interface ConstructBaseMessage extends WebSocketMessage {
   type: "constructBase";
   position: Position;
 }
-
-export interface EvolveMessage extends WebSocketMessage {
-  type: "evolve";
-  upgrade: string;
+export interface SpeedupMessage extends WebSocketMessage {
+  type: "speedup";
+}
+export interface CreateBotMessage extends WebSocketMessage {
+  type: "createBot";
+}
+export interface SelectBotTypeMessage extends WebSocketMessage {
+  type: "selectBotType";
+  index: number;
 }
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
-
-export type UpgradeType = "speed" | "defense" | "attack" | "toolSlot";
 
 export type ToolType = "blaster" | "magnet" | "teleport" | "transformer";
 

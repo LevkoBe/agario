@@ -15,7 +15,6 @@ import {
   LeaderboardMessage,
   PlayerLeftMessage,
   ToolType,
-  UpgradeType,
 } from "./types";
 
 export class RobotArenaClient {
@@ -30,6 +29,8 @@ export class RobotArenaClient {
   private camera: Camera;
   private mouse: Mouse;
   private lastMoveDirection: Position | null = null;
+  private currentTool: ToolType | null = null;
+  private movementDirection: Position = { x: 0, y: 0 };
 
   constructor() {
     this.gameState = {
@@ -56,12 +57,16 @@ export class RobotArenaClient {
 
     const inputCallbacks: InputHandlerCallbacks = {
       onMouseMove: (mouse) => this.handleMouseMove(mouse),
-      onMouseClick: (worldPos) => this.handleMouseClick(worldPos),
-      onActivateTool: (tool, target) => this.handleActivateTool(tool, target),
+      onActivateTool: (target) => this.handleActivateTool(target),
+      onToolChange: (direction) => this.handleToolChange(direction),
+      onToolSelect: (toolIndex) => this.handleToolSelect(toolIndex),
       onDropJunk: () => this.handleDropJunk(),
-      onConstructBase: () => this.handleConstructBase(),
-      onEvolve: (upgrade) => this.handleEvolve(upgrade),
-      onEnterPressed: () => this.handleEnterPressed(),
+      onCreateBot: () => this.handleCreateBot(),
+      onBotTypeSelect: (botTypeIndex) => this.handleBotTypeSelect(botTypeIndex),
+      onConfirmAction: () => this.handleConfirmAction(),
+      onMovement: (direction, pressed) =>
+        this.handleMovement(direction, pressed),
+      onSpeedup: () => this.handleSpeedup(),
     };
     this.inputHandler = new InputHandler(
       this.renderer.getCanvas(),
@@ -69,6 +74,7 @@ export class RobotArenaClient {
     );
 
     this.startRenderLoop();
+    this.startMovementLoop();
   }
 
   private handleConnectionStatusChange(status: ConnectionStatus): void {
@@ -85,6 +91,10 @@ export class RobotArenaClient {
     };
     this.renderer.setPlayerId(this.playerId);
     this.uiManager.hideJoinScreen();
+
+    // Enable input handling when game starts
+    this.inputHandler.setKeyboardMovementEnabled(true);
+    this.inputHandler.setMouseActivationEnabled(true);
   }
 
   private handleGameState(message: GameStateMessage): void {
@@ -110,37 +120,86 @@ export class RobotArenaClient {
   private handleMouseMove(mouse: Mouse): void {
     this.mouse = mouse;
     this.renderer.setMouse(mouse);
-    this.sendMovement();
+    this.sendMouseMovement();
   }
 
-  private handleMouseClick(worldPos: Position): void {
-    console.log(worldPos);
-    // Store last click position for targeted tools
-    // This is handled by the InputHandler
+  private handleActivateTool(target?: Position): void {
+    if (this.currentTool) {
+      this.wsManager.activateTool(this.currentTool, target);
+      this.uiManager.activateToolFeedback(this.currentTool);
+    }
   }
 
-  private handleActivateTool(tool: ToolType, target?: Position): void {
-    this.wsManager.activateTool(tool, target);
-    this.uiManager.activateToolFeedback(tool);
+  private handleToolChange(direction: "next" | "prev"): void {
+    const player = this.gameState.robots.find((r) => r.id === this.playerId);
+    if (!player || !player.tools) return;
+
+    const currentIndex = player.tools.indexOf(
+      this.currentTool || player.tools[0]
+    );
+    let newIndex: number;
+
+    if (direction === "next") {
+      newIndex = (currentIndex + 1) % player.tools.length;
+    } else {
+      newIndex = currentIndex > 0 ? currentIndex - 1 : player.tools.length - 1;
+    }
+
+    this.currentTool = player.tools[newIndex];
+    this.uiManager.updateSelectedTool(this.currentTool);
+  }
+
+  private handleToolSelect(toolIndex: number): void {
+    const player = this.gameState.robots.find((r) => r.id === this.playerId);
+    if (!player || !player.tools || toolIndex >= player.tools.length) return;
+
+    this.currentTool = player.tools[toolIndex];
+    this.uiManager.updateSelectedTool(this.currentTool);
   }
 
   private handleDropJunk(): void {
     this.wsManager.dropJunk();
   }
 
-  private handleConstructBase(): void {
-    const player = this.gameState.robots.find((r) => r.id === this.playerId);
-    if (player) {
-      this.wsManager.constructBase(player.position);
+  private handleCreateBot(): void {
+    // This could trigger a bot creation UI or send a create bot request
+    // Implementation depends on your game's bot creation system
+    console.log("Create bot requested");
+  }
+
+  private handleBotTypeSelect(botTypeIndex: number): void {
+    // Handle bot type selection after create bot was pressed
+    console.log("Bot type selected:", botTypeIndex);
+    // You might want to send this to the server or update UI
+  }
+
+  private handleConfirmAction(): void {
+    this.joinGame();
+  }
+
+  private handleMovement(
+    direction: "up" | "down" | "left" | "right",
+    pressed: boolean
+  ): void {
+    switch (direction) {
+      case "up":
+        this.movementDirection.y = pressed ? -1 : 0;
+        break;
+      case "down":
+        this.movementDirection.y = pressed ? 1 : 0;
+        break;
+      case "left":
+        this.movementDirection.x = pressed ? -1 : 0;
+        break;
+      case "right":
+        this.movementDirection.x = pressed ? 1 : 0;
+        break;
     }
   }
 
-  private handleEvolve(upgrade: UpgradeType): void {
-    this.wsManager.evolve(upgrade);
-  }
-
-  private handleEnterPressed(): void {
-    this.joinGame();
+  private handleSpeedup(): void {
+    // Handle speedup/boost functionality
+    this.wsManager.speedup();
   }
 
   public connect(serverUrl: string): void {
@@ -169,7 +228,7 @@ export class RobotArenaClient {
     }, 1000);
   }
 
-  private sendMovement(): void {
+  private sendMouseMovement(): void {
     if (!this.wsManager.isConnected() || !this.playerData) return;
 
     const canvas = this.renderer.getCanvas();
@@ -192,12 +251,55 @@ export class RobotArenaClient {
     }
   }
 
+  private sendKeyboardMovement(): void {
+    if (!this.wsManager.isConnected() || !this.playerData) return;
+
+    const movementState = this.inputHandler.getMovementState();
+    const direction: Position = { x: 0, y: 0 };
+
+    if (movementState.up) direction.y -= 1;
+    if (movementState.down) direction.y += 1;
+    if (movementState.left) direction.x -= 1;
+    if (movementState.right) direction.x += 1;
+
+    const length = Math.sqrt(
+      direction.x * direction.x + direction.y * direction.y
+    );
+    if (length > 0) {
+      direction.x /= length;
+      direction.y /= length;
+    }
+
+    if (
+      !this.lastMoveDirection ||
+      Math.abs(direction.x - this.lastMoveDirection.x) > 0.01 ||
+      Math.abs(direction.y - this.lastMoveDirection.y) > 0.01
+    ) {
+      this.wsManager.sendMovement(direction);
+      this.lastMoveDirection = direction;
+    }
+  }
+
+  private startMovementLoop(): void {
+    const sendMovement = () => {
+      this.sendKeyboardMovement();
+      requestAnimationFrame(sendMovement);
+    };
+    sendMovement();
+  }
+
   private updatePlayerStats(): void {
     const player = this.gameState.robots.find((r) => r.id === this.playerId);
     if (player) {
       this.uiManager.updatePlayerStats(player.mass);
       this.updateCamera(player.position);
       this.uiManager.updateTools(player.tools || []);
+
+      // Set current tool if not set
+      if (!this.currentTool && player.tools && player.tools.length > 0) {
+        this.currentTool = player.tools[0];
+        this.uiManager.updateSelectedTool(this.currentTool);
+      }
     }
   }
 
@@ -215,6 +317,10 @@ export class RobotArenaClient {
     this.playerData = null;
     this.playerId = null;
     this.renderer.setPlayerId(null);
+
+    // Disable input handling when not in game
+    this.inputHandler.setKeyboardMovementEnabled(false);
+    this.inputHandler.setMouseActivationEnabled(false);
   }
 
   private startRenderLoop(): void {

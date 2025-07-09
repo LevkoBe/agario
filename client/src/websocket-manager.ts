@@ -10,11 +10,12 @@ import {
   ActivateToolMessage,
   DropJunkMessage,
   ConstructBaseMessage,
-  EvolveMessage,
+  SpeedupMessage,
+  CreateBotMessage,
+  SelectBotTypeMessage,
   Position,
   ConnectionStatus,
   ToolType,
-  UpgradeType,
 } from "./types";
 
 export interface WebSocketCallbacks {
@@ -68,103 +69,21 @@ export class WebSocketManager {
       case "spawnConfirm":
         this.callbacks.onSpawnConfirm(message as SpawnConfirmMessage);
         break;
-
       case "gameState":
         this.callbacks.onGameState(message as GameStateMessage);
         break;
-
       case "destroyed":
         this.callbacks.onDestroyed(message as DestroyedMessage);
         break;
-
       case "leaderboard":
         this.callbacks.onLeaderboard(message as LeaderboardMessage);
         break;
-
       case "playerLeft":
         this.callbacks.onPlayerLeft(message as PlayerLeftMessage);
         break;
-
       default:
         console.warn("Unknown message type:", message.type);
     }
-  }
-
-  public joinGame(nickname: string, mode: string, privateRoom?: boolean): void {
-    if (!this.isConnected()) {
-      console.error("Not connected to server");
-      return;
-    }
-
-    const joinMessage: JoinMessage = {
-      type: "join",
-      nickname,
-      mode,
-    };
-
-    if (privateRoom) {
-      joinMessage.privateRoom = true;
-    }
-
-    this.send(joinMessage);
-  }
-
-  public sendMovement(direction: Position): void {
-    if (!this.isConnected()) return;
-
-    const moveMessage: MoveMessage = {
-      type: "move",
-      direction,
-    };
-
-    this.send(moveMessage);
-  }
-
-  public activateTool(tool: ToolType, target?: Position): void {
-    if (!this.isConnected()) return;
-
-    const message: ActivateToolMessage = {
-      type: "activateTool",
-      tool,
-    };
-
-    if (target) {
-      message.target = target;
-    }
-
-    this.send(message);
-  }
-
-  public dropJunk(): void {
-    if (!this.isConnected()) return;
-
-    const message: DropJunkMessage = {
-      type: "dropJunk",
-    };
-
-    this.send(message);
-  }
-
-  public constructBase(position: Position): void {
-    if (!this.isConnected()) return;
-
-    const message: ConstructBaseMessage = {
-      type: "constructBase",
-      position,
-    };
-
-    this.send(message);
-  }
-
-  public evolve(upgrade: UpgradeType): void {
-    if (!this.isConnected()) return;
-
-    const message: EvolveMessage = {
-      type: "evolve",
-      upgrade,
-    };
-
-    this.send(message);
   }
 
   private send(message: WebSocketMessage): void {
@@ -182,5 +101,75 @@ export class WebSocketManager {
       this.ws.close();
       this.ws = null;
     }
+  }
+
+  public joinGame(nickname: string, mode: string, privateRoom?: boolean): void {
+    if (!this.isConnected()) {
+      console.error("Not connected to server");
+      return;
+    }
+
+    const joinMessage: JoinMessage = {
+      type: "join",
+      nickname,
+      mode,
+      ...(privateRoom ? { privateRoom: true } : {}),
+    };
+
+    this.send(joinMessage);
+  }
+
+  public sendMovement(direction: Position): void {
+    const message: MoveMessage = {
+      type: "move",
+      direction,
+    };
+    this.send(message);
+  }
+
+  public activateTool(tool: ToolType, target?: Position): void {
+    const message: ActivateToolMessage = {
+      type: "activateTool",
+      tool,
+      ...(target ? { target } : {}),
+    };
+    this.send(message);
+  }
+
+  public dropJunk(): void {
+    const message: DropJunkMessage = {
+      type: "dropJunk",
+    };
+    this.send(message);
+  }
+
+  public speedup(): void {
+    const message: SpeedupMessage = {
+      type: "speedup",
+    };
+    this.send(message);
+  }
+
+  public constructBase(position: Position): void {
+    const message: ConstructBaseMessage = {
+      type: "constructBase",
+      position,
+    };
+    this.send(message);
+  }
+
+  public createBot(): void {
+    const message: CreateBotMessage = {
+      type: "createBot",
+    };
+    this.send(message);
+  }
+
+  public selectBotType(botTypeIndex: number): void {
+    const message: SelectBotTypeMessage = {
+      type: "selectBotType",
+      index: botTypeIndex,
+    };
+    this.send(message);
   }
 }
